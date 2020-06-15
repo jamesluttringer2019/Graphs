@@ -4,7 +4,6 @@ from world import World
 from collections import deque
 import random
 from ast import literal_eval
-import time
 # Load world
 world = World()
 
@@ -12,8 +11,8 @@ world = World()
 # You may uncomment the smaller graphs for development and testing purposes.
 #map_file = "maps/test_line.txt"
 #map_file = "maps/test_cross.txt"
-# map_file = "maps/test_loop.txt"
-# map_file = "maps/test_loop_fork.txt"
+#map_file = "maps/test_loop.txt"
+#map_file = "maps/test_loop_fork.txt"
 map_file = "maps/main_maze.txt"
 
 # Loads the map into a dictionary
@@ -27,9 +26,10 @@ player = Player(world.starting_room)
 
 
 inverse = {'n':'s', 's':'n', 'e':'w', 'w':'e'}
-# room_points = '_to '.join(inverse).split()
+
 connections = {}
 endpoints = set()
+visited = set()
 # # IF INVERSE, APPEND INVERSE PREV DIR
 def populate_connections(r):
     feats = [i for i in [r.n_to, r.s_to, r.e_to, r.w_to] if i]
@@ -49,47 +49,47 @@ def populate_connections(r):
     if len(feats) == 1:
         endpoints.add(r.id)
         return
-visited = set()
-def traverse(p):
-    breaks = []
-    s = [(None, p)]
-    last_break = 0
-    path = []
-    while s!=[]:
-        
-        d, p = s.pop()
-        path.append((d, p))
-        
-        if p in endpoints or len([i for i in connections[p].values() if i not in visited])==0 :
-            i = -1
-            
-            if len([i for i in connections[breaks[-1]].values() if i not in visited])>1:
-                last_break = breaks[-1]
-            else:
-                last_break = breaks.pop()
-            while p != last_break:
-                d = inverse[path[i][0]]
-                p = connections[p][d]
-                path.append((d, p))
-                i-=1
-        
-        else:
-            if p not in visited:
-                exits = [(d, point)for d, point in connections[p].items()]
-                s += exits
-            
-                if len(exits)>2:
-                    breaks.append(p)
-        visited.add(p)
-        if len(breaks) == 0:
-            break
+
+def find_endpoint(p):
+    stack = [[p]]
+    while stack != []:
+        path = stack.pop()
+        cur_p = path[-1]
+        visited.add(cur_p)
+        if len([i for i in connections[cur_p].values() if i not in visited])==0:
+            return path
+        for c in [i for i in connections[cur_p].values() if i not in visited]:
+            stack.append(path + [c])
+
+def find_closest_undiscovered(p):
+    queue = deque([[p]])
+    while len(queue)>0:
+        path = queue.pop()
+        cur_p = path[-1]
+        if len([i for i in connections[cur_p].values() if i not in visited])>0:
+            return path
+        for c in connections[cur_p].values():
+            queue.appendleft(path + [c])
+    
+
+def traverse(start):
+    path = [start]
+    while len(visited)<len(connections):
+        path += find_closest_undiscovered(path[-1])[1:]
+        path += find_endpoint(path[-1])[1:]
     return path
+
+def path_to_dir(path):
+    curr = path[0]
+    dirs = []
+    for i in path[1:]:
+        for m,p in connections[curr].items():
+            if p == i:
+                dirs.append(m)
+        curr = i
+    return dirs
 populate_connections(player.current_room)
-
-# Fill this out with directions to walk
-# traversal_path = ['n', 'n']
-traversal_path = [d for d,_ in traverse(000)[1:]]
-
+traversal_path = path_to_dir(traverse(000))
 # TRAVERSAL TEST
 visited_rooms = set()
 player.current_room = world.starting_room
@@ -120,54 +120,3 @@ else:
 #         break
 #     else:
 #         print("I did not understand that command.")
-
-
-# ------------------------------------------------------------------------------------
-# Wouldn't work
-
-# def find_closest_endpoint(p, visited):
-#     queue = deque([[p]])
-#     shortest = None
-#     while shortest == None:
-#         path = queue.pop()
-#         cur_p = path[-1]
-#         if (cur_p in endpoints and cur_p not in visited) or len([i for i in connections[cur_p].values() if i.id not in visited])==0:
-#             shortest = path
-#         for c in connections[cur_p].values():
-#             queue.appendleft(path + [c.id])
-#     return shortest
-# # two seperate functions bc of loops
-# def find_closest_undiscovered(p, visited):
-#     queue = deque([[p]])
-#     shortest = None
-#     while shortest == None:
-#         path = queue.pop()
-#         cur_p = path[-1]
-#         if len([i for i in connections[cur_p].values() if i not in visited])>0 and cur_p!=p:
-#             shortest = path
-#         for c in connections[cur_p].values():
-#             queue.appendleft(path + [c.id])
-#     return shortest
-
-# def traverse(start):
-#     visited = [start]
-#     path = [start]
-#     while len(visited)<len(connections):
-#         path += find_closest_endpoint(path[-1], visited)[1:]
-#         for i in path:
-#             if i not in visited:
-#                 visited.append(i)
-#         path += find_closest_undiscovered(path[-1], visited)[1:]
-#         print(len(visited))
-#     # path += find_closest_endpoint(path[-1], visited)[1:]
-#     # for i in path:
-#     #     visited.add(i)
-#     # path += find_closest_undiscovered(path[-1], visited)[1:]
-#     return path, visited
-# #print(connections[475])
-# print(connections)
-# print(traverse(000))
-
-# def id_to_directions(path):
-#     directions = []
-#     for i, p in enumerate(path):
